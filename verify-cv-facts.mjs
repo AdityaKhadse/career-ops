@@ -1187,6 +1187,9 @@ const STRUCTURED_HTML_FIELDS = [
   ['award-title', 'award', true],
   ['job-role', 'title', false],
 ];
+// Layout separators at either edge of a structured field's text. A hyphen only
+// counts when spaced, so "Human-Computer" is untouched.
+const FIELD_SEPARATOR_EDGE_RE = /^(?:[|•·–—]|\s-\s?)\s*|\s*(?:[|•·–—]|\s-)$/gu;
 // One level of nested braces, enough for `\textbf{...}` inside an argument.
 const LATEX_ARG = String.raw`\s*\{((?:[^{}]|\{[^{}]*\})*)\}`;
 // build-cv-latex.mjs writes `\resumeSubheading{organization}{…}{title or degree}{…}`
@@ -1274,7 +1277,9 @@ export function structuredFieldClaims(text) {
   const claims = [];
   const add = (kind, inner, blocking) => {
     const line = stripMarkup(inner);
-    const value = normalizeFact(line);
+    // A visual separator ("Degree | <org>") stays behind once the org span is
+    // removed. It is layout, not part of the claim, and no source contains it.
+    const value = normalizeFact(line).replace(FIELD_SEPARATOR_EDGE_RE, '').trim();
     if (value) claims.push({ kind, value, line, blocking });
   };
   for (const [cls, kind, blocking] of STRUCTURED_HTML_FIELDS) {
@@ -3079,7 +3084,9 @@ function sourceSpellsFact(sourceText, value) {
   const escaped = value
     .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     .replace(/\s+/g, '\\s+')
-    .replace(/-/g, `[-${FOLDED_DASH}]`);
+    // A run of dashes is one separator: cv.md writes "Name -- Place", a
+    // payload "Name - Place". The dash count is layout, not a fact.
+    .replace(/-/g, `[-${FOLDED_DASH}]+`);
   return new RegExp(`(?:^|[^\\p{L}\\p{N}+#/-])${escaped}(?=$|[^\\p{L}\\p{N}+#/-])`, 'iu').test(sourceText);
 }
 

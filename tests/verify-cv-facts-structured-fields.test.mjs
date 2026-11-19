@@ -183,7 +183,47 @@ test('nested edu-org with inner nowrap span is completely removed from edu-title
   ]);
 });
 
+test('a separator left beside a removed edu-org is not part of the degree claim', () => {
+  for (const sep of ['|', '•', '·', '–', '—', '-']) {
+    const claims = structuredFieldClaims(
+      `<div class="edu-title">MS in Data Analytics Engineering ${sep} <span class="edu-org">George Mason University</span></div>`);
+    assert.deepEqual(kinds(claims), [
+      'education=george mason university',
+      'education=ms in data analytics engineering',
+    ], `separator ${sep}`);
+  }
+});
 
+test('a leading separator before a structured field value is dropped', () => {
+  const claims = structuredFieldClaims(
+    '<div class="edu-title"><span class="edu-org">George Mason University</span> | MS in Data Analytics Engineering</div>');
+  assert.deepEqual(kinds(claims), [
+    'education=george mason university',
+    'education=ms in data analytics engineering',
+  ]);
+});
+
+test('an employer written "Name - Place" is sourced by a cv.md heading "Name -- Place"', () => {
+  const cv = join(tmp, 'cv-dashes.md');
+  writeFileSync(cv, `# Jane Doe
+
+## Experience
+
+### P360 Solutions -- Mumbai, India
+**Data Analyst**
+2019 – 2024
+
+- Built dashboards.
+`);
+  const html = '<span class="job-company">P360 Solutions - Mumbai, India</span>';
+  const result = verifyFacts(html, { sourcePaths: [cv], cwd: tmp });
+  assert.deepEqual(result.unsupportedFacts, []);
+});
+
+test('a hyphen inside a degree name is kept', () => {
+  const claims = structuredFieldClaims('<div class="edu-title">M.Sc. Human-Computer Interaction</div>');
+  assert.deepEqual(kinds(claims), ['education=m.sc. human-computer interaction']);
+});
 
 test('a claim that spans markdown links reads the link text, not the link targets', () => {
   const linked = join(tmp, 'cv-linked.md');
